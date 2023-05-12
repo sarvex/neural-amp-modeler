@@ -135,12 +135,11 @@ def _create_callbacks(learning_config):
     )
     if not validate_inside_epoch:
         return [checkpoint_best, checkpoint_epoch]
-    else:
-        # The last validation pass, whether at the end of an epoch or not
-        checkpoint_last = pl.callbacks.model_checkpoint.ModelCheckpoint(
-            filename="checkpoint_last_{epoch:04d}_{step}", **kwargs
-        )
-        return [checkpoint_best, checkpoint_last, checkpoint_epoch]
+    # The last validation pass, whether at the end of an epoch or not
+    checkpoint_last = pl.callbacks.model_checkpoint.ModelCheckpoint(
+        filename="checkpoint_last_{epoch:04d}_{step}", **kwargs
+    )
+    return [checkpoint_best, checkpoint_last, checkpoint_epoch]
 
 
 def main(args):

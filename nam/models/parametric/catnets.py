@@ -114,8 +114,7 @@ class _CatMixin(ParametricBaseNet):
                     f'      "{k2}": {v_str}' + (",\n" if j < len(val) else "\n")
                 )
             s_parametric.append("    }" f"{',' if i < len(config) else ''}\n")
-        s_parametric.append("  }\n")
-        s_parametric.append(')");\n')
+        s_parametric.extend(("  }\n", ')");\n'))
         return tuple(s_parametric)
 
     def _export_input_output_args(self) -> Tuple[torch.Tensor]:
@@ -146,11 +145,13 @@ class _CatMixin(ParametricBaseNet):
         return self._single_class._forward(self, x_augmented)
 
     def _sidedoor_params_to_tensor(self) -> torch.Tensor:
-        param_names = sorted([k for k in self._sidedoor_parametric_config.keys()])
-        params = torch.Tensor(
-            [self._sidedoor_parametric_config[k].default_value for k in param_names]
+        param_names = sorted(list(self._sidedoor_parametric_config.keys()))
+        return torch.Tensor(
+            [
+                self._sidedoor_parametric_config[k].default_value
+                for k in param_names
+            ]
         )
-        return params
 
     @contextmanager
     def _use_parametric_config(self, c):

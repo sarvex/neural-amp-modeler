@@ -89,25 +89,23 @@ class LSTMCore(_L):
             else hidden_state
         )
         if not self.training or self._train_truncate is None:
-            output_features = super().forward(x, last_hidden_state)[0]
-        else:
-            output_features_list = []
-            if self._train_burn_in is not None:
-                last_output_features, last_hidden_state = super().forward(
-                    x[:, : self._train_burn_in, :], last_hidden_state
-                )
-                output_features_list.append(last_output_features.detach())
-            burn_in_offset = 0 if self._train_burn_in is None else self._train_burn_in
-            for i in range(burn_in_offset, x.shape[1], self._train_truncate):
-                if i > burn_in_offset:
-                    # Don't detach the burn-in state so that we can learn it.
-                    last_hidden_state = tuple(z.detach() for z in last_hidden_state)
-                last_output_features, last_hidden_state = super().forward(
-                    x[:, i : i + self._train_truncate, :], last_hidden_state
-                )
-                output_features_list.append(last_output_features)
-            output_features = torch.cat(output_features_list, dim=1)
-        return output_features
+            return super().forward(x, last_hidden_state)[0]
+        output_features_list = []
+        if self._train_burn_in is not None:
+            last_output_features, last_hidden_state = super().forward(
+                x[:, : self._train_burn_in, :], last_hidden_state
+            )
+            output_features_list.append(last_output_features.detach())
+        burn_in_offset = 0 if self._train_burn_in is None else self._train_burn_in
+        for i in range(burn_in_offset, x.shape[1], self._train_truncate):
+            if i > burn_in_offset:
+                # Don't detach the burn-in state so that we can learn it.
+                last_hidden_state = tuple(z.detach() for z in last_hidden_state)
+            last_output_features, last_hidden_state = super().forward(
+                x[:, i : i + self._train_truncate, :], last_hidden_state
+            )
+            output_features_list.append(last_output_features)
+        return torch.cat(output_features_list, dim=1)
 
     def _initial_state(self, n: Optional[int]) -> _LSTMHiddenCellType:
         return (

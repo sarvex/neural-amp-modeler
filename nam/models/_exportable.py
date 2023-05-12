@@ -37,7 +37,7 @@ class Exportable(abc.ABC):
         """
         training = self.training
         self.eval()
-        with open(Path(outdir, modelname + ".nam"), "w") as fp:
+        with open(Path(outdir, f"{modelname}.nam"), "w") as fp:
             json.dump(
                 self._get_export_dict(),
                 fp,

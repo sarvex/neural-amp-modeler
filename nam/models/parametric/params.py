@@ -67,5 +67,5 @@ class ContinuousParam(Param):
     maxval: float
 
     @classmethod
-    def typestr(self) -> str:
+    def typestr(cls) -> str:
         return "continuous"
