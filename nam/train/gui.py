@@ -250,7 +250,7 @@ class _GUI(object):
 
         # Run it
         for file in file_list:
-            print("Now training {}".format(file))
+            print(f"Now training {file}")
             modelname = re.sub(r"\.wav$", "", file.split("/")[-1])
 
             trained_model = core.train(
@@ -443,9 +443,7 @@ class _AdvancedOptionsGUI(object):
 
         def int_or_null(val):
             val = val.rstrip()
-            if val == "null":
-                return val
-            return int(val)
+            return val if val == "null" else int(val)
 
         def int_or_null_inv(val):
             return "null" if val is None else str(val)

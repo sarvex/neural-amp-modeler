@@ -36,10 +36,10 @@ def _detect_input_version(input_path) -> Version:
     buffer_size = 65536
     with open(input_path, "rb") as f:
         while True:
-            data = f.read(buffer_size)
-            if not data:
+            if data := f.read(buffer_size):
+                md5.update(data)
+            else:
                 break
-            md5.update(data)
     file_hash = md5.hexdigest()
 
     version = {
@@ -347,7 +347,7 @@ def _plot(
     plt.title(f"ESR={esr:.3f}")
     plt.legend()
     if filepath is not None:
-        plt.savefig(filepath + ".png")
+        plt.savefig(f"{filepath}.png")
     if not silent:
         plt.show()
 
@@ -426,9 +426,9 @@ def train(
     _plot(
         model,
         dataset_validation,
-        window_start=100_000,  # Start of the plotting window, in samples
-        window_end=101_000,  # End of the plotting window, in samples
-        filepath=train_path +'/'+ modelname if save_plot else None,
-        silent=silent
+        window_start=100_000,
+        window_end=101_000,
+        filepath=f'{train_path}/{modelname}' if save_plot else None,
+        silent=silent,
     )
     return model

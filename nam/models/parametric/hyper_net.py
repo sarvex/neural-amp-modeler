@@ -65,14 +65,14 @@ class _Conv(nn.Conv1d, _NetLayer):
         bias = params[1].flatten() if self.bias is not None else None
         groups = n
         return F.conv1d(
-            inputs.reshape((1, n * cin, -1)),
+            inputs.reshape((1, groups * cin, -1)),
             weight,
             bias=bias,
             stride=self.stride,
             padding=self.padding,
             dilation=self.dilation,
             groups=groups,
-        ).reshape((n, cout, -1))
+        ).reshape((groups, cout, -1))
 
     def get_spec(self):
         shapes = (
@@ -92,9 +92,7 @@ class _Conv(nn.Conv1d, _NetLayer):
         # https://pytorch.org/docs/stable/_modules/torch/nn/modules/conv.html#Conv1d
         fan = _calculate_fan_in_and_fan_out(self.weight.data)[0]
         bound = 1.0 / math.sqrt(fan)
-        std = math.sqrt(1.0 / 12.0) * (2 * bound)
-        # LayerNorm handles division by number of dimensions...
-        return std
+        return math.sqrt(1.0 / 12.0) * (2 * bound)
 
     def _weight_norm(self):
         """
@@ -104,9 +102,7 @@ class _Conv(nn.Conv1d, _NetLayer):
         fan = _calculate_correct_fan(self.weight.data, "fan_in")
         # Kaiming uniform w/ a=sqrt(5)
         gain = calculate_gain("leaky_relu", 5.0)
-        std = gain / math.sqrt(fan)
-        # LayerNorm handles division by number of dimensions...
-        return std
+        return gain / math.sqrt(fan)
 
 
 class _BatchNorm(nn.BatchNorm1d, _NetLayer):
@@ -214,25 +210,24 @@ class HyperNet(nn.Module):
         params = []
         for block in self._net[:-1]:
             linear = block[0]
-            params.append(linear.weight.flatten())
-            params.append(linear.bias.flatten())
+            params.extend((linear.weight.flatten(), linear.bias.flatten()))
             if self.batchnorm:
                 bn = block[1]
-                params.append(bn.running_mean.flatten())
-                params.append(bn.running_var.flatten())
-                params.append(bn.weight.flatten())
-                params.append(bn.bias.flatten())
-                params.append(torch.Tensor([bn.eps]).to(bn.weight.device))
+                params.extend(
+                    (
+                        bn.running_mean.flatten(),
+                        bn.running_var.flatten(),
+                        bn.weight.flatten(),
+                        bn.bias.flatten(),
+                        torch.Tensor([bn.eps]).to(bn.weight.device),
+                    )
+                )
             assert len(block) <= 3, "Linear-(BN)-activation"
-            assert (
-                len([p for p in block[-1].parameters()]) == 0
-            ), "No params in activation"
+            assert not list(block[-1].parameters()), "No params in activation"
         head = self._net[-1]
-        params.append(head.weight.flatten())
-        params.append(head.bias.flatten())
+        params.extend((head.weight.flatten(), head.bias.flatten()))
         affine = self._affine
-        params.append(affine.weight.flatten())
-        params.append(affine.bias.flatten())
+        params.extend((affine.weight.flatten(), affine.bias.flatten()))
         return torch.cat(params).detach().cpu().numpy()
 
 
@@ -313,7 +308,7 @@ class HyperConvNet(ParametricBaseNet):
     @property
     def receptive_field(self) -> int:
         # Last conv is the collapser--compensate w/ a minus 1
-        return sum([m.dilation[0] for m in self._net if isinstance(m, _Conv)]) + 1 - 1
+        return sum(m.dilation[0] for m in self._net if isinstance(m, _Conv)) + 1 - 1
 
     def export(self, outdir: Path, include_snapshot: bool=False):
         """
@@ -498,13 +493,11 @@ class HyperConvNet(ParametricBaseNet):
         return x
 
     def _get_dilations(self) -> List[int]:
-        dilations = []
-        for (
-            layer
-        ) in self._net_no_head:  # Last two layers are a 1D conv head and flatten
-            if isinstance(layer, _Conv):
-                dilations.append(layer.dilation[0])
-        return dilations
+        return [
+            layer.dilation[0]
+            for layer in self._net_no_head
+            if isinstance(layer, _Conv)
+        ]
 
     def _export_config(self):
         return {
@@ -542,14 +535,14 @@ class HyperConvNet(ParametricBaseNet):
         params = []
         for bn in self._net_no_head:
             if isinstance(bn, _BatchNorm):
-                params.append(bn.running_mean.flatten())
-                params.append(bn.running_var.flatten())
-                params.append(torch.Tensor([bn.eps]).to(bn.running_mean.device))
-        return (
-            np.array([])
-            if len(params) == 0
-            else torch.cat(params).detach().cpu().numpy()
-        )
+                params.extend(
+                    (
+                        bn.running_mean.flatten(),
+                        bn.running_var.flatten(),
+                        torch.Tensor([bn.eps]).to(bn.running_mean.device),
+                    )
+                )
+        return np.array([]) if not params else torch.cat(params).detach().cpu().numpy()
 
     def _export_input_output(self) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         params = torch.randn((self._hyper_net.input_dim,))

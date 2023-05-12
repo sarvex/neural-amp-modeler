@@ -29,10 +29,7 @@ class Conv1d(nn.Conv1d):
             tensors.append(self.weight.data.flatten())
         if self.bias is not None:
             tensors.append(self.bias.data.flatten())
-        if len(tensors) == 0:
-            return torch.zeros((0,))
-        else:
-            return torch.cat(tensors)
+        return torch.zeros((0,)) if not tensors else torch.cat(tensors)
 
 
 class _Layer(nn.Module):
@@ -271,7 +268,7 @@ class _WaveNet(nn.Module):
 
     @property
     def receptive_field(self) -> int:
-        return 1 + sum([(layer.receptive_field - 1) for layer in self._layers])
+        return 1 + sum(layer.receptive_field - 1 for layer in self._layers)
 
     def export_config(self):
         return {

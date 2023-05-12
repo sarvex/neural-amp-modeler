@@ -189,15 +189,14 @@ class Model(pl.LightningModule, InitializableFromConfig):
         optimizer = torch.optim.Adam(self.parameters(), **self._optimizer_config)
         if self._scheduler_config is None:
             return optimizer
-        else:
-            lr_scheduler = getattr(
-                torch.optim.lr_scheduler, self._scheduler_config["class"]
-            )(optimizer, **self._scheduler_config["kwargs"])
-            lr_scheduler_config = {"scheduler": lr_scheduler}
-            for key in ("interval", "frequency", "monitor"):
-                if key in self._scheduler_config:
-                    lr_scheduler_config[key] = self._scheduler_config[key]
-            return {"optimizer": optimizer, "lr_scheduler": lr_scheduler_config}
+        lr_scheduler = getattr(
+            torch.optim.lr_scheduler, self._scheduler_config["class"]
+        )(optimizer, **self._scheduler_config["kwargs"])
+        lr_scheduler_config = {"scheduler": lr_scheduler}
+        for key in ("interval", "frequency", "monitor"):
+            if key in self._scheduler_config:
+                lr_scheduler_config[key] = self._scheduler_config[key]
+        return {"optimizer": optimizer, "lr_scheduler": lr_scheduler_config}
 
     def forward(self, *args, **kwargs):
         return self.net(*args, **kwargs)
@@ -220,7 +219,7 @@ class Model(pl.LightningModule, InitializableFromConfig):
         loss = 0.0
         # Prediction aka MSE loss
         if self._loss_config.fourier:
-            loss = loss + mse_fft(preds, targets)
+            loss += mse_fft(preds, targets)
         else:
             loss = loss + self._mse_loss(preds, targets)
         if self._loss_config.mrstft_weight > 0.0:
@@ -259,7 +258,7 @@ class Model(pl.LightningModule, InitializableFromConfig):
         dict_to_log = {"MSE": mse_loss, "ESR": esr_loss, "val_loss": val_loss}
         if self._loss_config.mrstft_weight > 0.0 and self._mrstft is not None:
             mrstft_loss = self._mrstft_loss(preds, targets)
-            dict_to_log.update({"MRSTFT": mrstft_loss})
+            dict_to_log["MRSTFT"] = mrstft_loss
         self.log_dict(dict_to_log)
         return val_loss
 

@@ -257,16 +257,18 @@ class ConvNet(BaseNet):
                 params.append(conv.bias.flatten())
             if self._batchnorm:
                 bn = block._modules[BATCHNORM_NAME]
-                params.append(bn.running_mean.flatten())
-                params.append(bn.running_var.flatten())
-                params.append(bn.weight.flatten())
-                params.append(bn.bias.flatten())
-                params.append(torch.Tensor([bn.eps]).to(bn.weight.device))
+                params.extend(
+                    (
+                        bn.running_mean.flatten(),
+                        bn.running_var.flatten(),
+                        bn.weight.flatten(),
+                        bn.bias.flatten(),
+                        torch.Tensor([bn.eps]).to(bn.weight.device),
+                    )
+                )
         head = self._net._modules["head"]
-        params.append(head.weight.flatten())
-        params.append(head.bias.flatten())
-        params = torch.cat(params).detach().cpu().numpy()
-        return params
+        params.extend((head.weight.flatten(), head.bias.flatten()))
+        return torch.cat(params).detach().cpu().numpy()
 
     def _forward(self, x):
         y = self._net(x)

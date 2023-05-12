@@ -82,21 +82,18 @@ def wav_to_np(
         y_wav = wavio.read(str(require_match))
         required_shape = y_wav.data.shape
         required_wavinfo = WavInfo(y_wav.sampwidth, y_wav.rate)
-    if required_wavinfo is not None:
-        if x_wav.rate != required_wavinfo.rate:
-            raise ValueError(
-                f"Mismatched rates {x_wav.rate} versus {required_wavinfo.rate}"
-            )
+    if required_wavinfo is not None and x_wav.rate != required_wavinfo.rate:
+        raise ValueError(
+            f"Mismatched rates {x_wav.rate} versus {required_wavinfo.rate}"
+        )
     arr_premono = x_wav.data[preroll:] / (2.0 ** (8 * x_wav.sampwidth - 1))
-    if required_shape is not None:
-        if arr_premono.shape != required_shape:
-            raise AudioShapeMismatchError(
-                arr_premono.shape,
-                required_shape,
-                f"Mismatched shapes. Expected {required_shape}, but this is "
-                f"{arr_premono.shape}!",
-            )
-        # sampwidth fine--we're just casting to 32-bit float anyways
+    if required_shape is not None and arr_premono.shape != required_shape:
+        raise AudioShapeMismatchError(
+            arr_premono.shape,
+            required_shape,
+            f"Mismatched shapes. Expected {required_shape}, but this is "
+            f"{arr_premono.shape}!",
+        )
     arr = arr_premono[:, 0]
     return arr if not info else (arr, WavInfo(x_wav.sampwidth, x_wav.rate))
 
@@ -411,13 +408,7 @@ class Dataset(AbstractDataset, InitializableFromConfig):
         return x, y
 
     @classmethod
-    def _validate_start_stop(
-        self,
-        x: torch.Tensor,
-        y: torch.Tensor,
-        start: Optional[int] = None,
-        stop: Optional[int] = None,
-    ):
+    def _validate_start_stop(cls, x: torch.Tensor, y: torch.Tensor, start: Optional[int] = None, stop: Optional[int] = None):
         """
         Check for potential input errors.
 
@@ -469,7 +460,7 @@ class Dataset(AbstractDataset, InitializableFromConfig):
             )
 
     @classmethod
-    def _validate_x_y(self, x, y):
+    def _validate_x_y(cls, x, y):
         if len(x) != len(y):
             raise XYError(
                 f"Input and output aren't the same lengths! ({len(x)} vs {len(y)})"
@@ -503,7 +494,7 @@ class ParametricDataset(Dataset):
 
     def __init__(self, params: Dict[str, Union[bool, float, int]], *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._keys = sorted(tuple(k for k in params.keys()))
+        self._keys = sorted(tuple(params))
         self._vals = torch.Tensor([float(params[k]) for k in self._keys])
 
     @classmethod
